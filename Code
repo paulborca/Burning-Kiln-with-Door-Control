@@ -1,0 +1,153 @@
+
+(*!NOTE!*)
+
+(*The code is in the initial state when I first encounter with the programming language Structured Text so it is not that well structured*)
+(*Future modifications will arrive. This code is working and is commented in accordance.*)
+
+
+
+
+
+
+
+
+
+
+(*SET TEMPERATURE*)
+	(*Temperature read*)
+
+		temp := senzor_temperatura*0.00105263; (*Temperature Sensor PT1000, the value is approximately accurate, future calibration requiered*)
+
+	(*Temp set*) (*Programming the two buttons that generate the users working temperature*)
+
+		IF (inc_temp)		THEN
+			set_temp := set_temp +1;
+			inc_temp := FALSE;
+		END_IF
+
+		IF (dec_temp)		THEN
+			set_temp := set_temp -1;
+			dec_temp := FALSE;
+		END_IF
+
+	(*Test ok temperature*) (*Testing when the burning kiln reaches the working temperature and maintains it to that working temperature*)
+
+		IF (temp >= set_temp-0.1) AND (temp <= set_temp+0.5) THEN
+			temp_reached := TRUE;
+		ELSE
+			temp_reached := FALSE;
+		END_IF;
+(*Manual*)
+	IF ((but_auto =FALSE) AND (ok1 = FALSE)) THEN (*When the automatic button is pressed, the manual buttons do not work*)
+	(*Close*)(*Note: This part of code needs calibration, but it works*)
+		IF (but_u_inchis AND NOT(senzor_usa_inchisa) AND NOT but_u_deschis) THEN
+			motor_jos := TRUE ;
+			motor_sus := FALSE;
+			bec_semnalizare := TRUE;
+		END_IF
+			IF senzor_usa_inchisa THEN
+			bec_semnalizare := FALSE;
+			motor_jos := FALSE ;
+			but_u_inchis := FALSE;
+		END_IF
+	
+	(*Open*)(*Note: This part of code needs calibration, but it works*)
+
+		IF ( but_u_deschis AND NOT(senzor_usa_deschisa) AND NOT but_u_inchis ) THEN
+			motor_jos := FALSE ;
+			motor_sus := TRUE;
+			bec_semnalizare := TRUE;
+		END_IF
+			IF senzor_usa_deschisa THEN
+			bec_semnalizare := FALSE;
+			motor_sus := FALSE ;
+			but_u_deschis := FALSE;
+		END_IF
+		
+	(*Heat*)(*The heater will only start when the door is closed, this was implemented as a safety feature*)
+	
+		IF ( but_cuptor AND senzor_usa_inchisa) THEN
+			bec_incalzire := TRUE;
+		END_IF
+		IF NOT but_cuptor THEN
+			bec_incalzire:= FALSE;
+		END_IF
+
+	END_IF
+(*Automatic*)
+	(* The automatic process works as follows: First we activate the automatic button that will make the manual buttons unavailable.*)
+	(*We will verify if the door is closed, if not, the door will close. After it is closed the heater will start.*)
+	(*Now we can choose the working temperature (from visualization). When the temperature is reached a timer will start.*)
+	(*For now the timer is set via code, but in the future we will modify the code in order to choose the time from the visualization*)
+	(*If the temperature gets too hig, the heater  will stop, and if the temperature gets too low, the heater will start again.*)
+	(*After the time is up, we automatically open the door and the process is over.*)
+	timer (IN := ok, PT := T#5s);
+	IF but_auto AND NOT but_auto_stop THEN
+		IF senzor_usa_deschisa THEN
+			motor_jos := TRUE;
+			motor_sus :=FALSE;
+			bec_semnalizare := TRUE;
+		END_IF
+		IF senzor_usa_inchisa THEN
+			motor_jos :=FALSE;
+			bec_semnalizare := FALSE;
+			(*bec_incalzire := TRUE;*)
+		END_IF
+		IF temp >= set_temp+0.1 THEN
+			ok := TRUE;
+			bec_incalzire := FALSE;
+		ELSIF temp <= set_temp-0.05 AND senzor_usa_inchisa THEN
+			bec_incalzire := TRUE;
+		END_IF
+		IF timer.Q THEN
+			ok1:=TRUE;
+ 		END_IF
+		IF ok1 THEN
+			bec_incalzire := FALSE;
+			motor_sus := TRUE;
+			bec_semnalizare:=TRUE;
+			IF senzor_usa_deschisa THEN
+				motor_sus := FALSE;
+				but_auto:=FALSE;
+				motor_jos := FALSE;
+				bec_semnalizare:=FALSE;
+				ok1 := FALSE;
+				ok := ok1;
+			END_IF
+
+		END_IF
+
+(*Emergency Button*)
+	(*When this button is pressed everything stops*)
+	ELSIF but_auto_stop THEN
+		motor_jos := FALSE;
+		motor_sus := FALSE;
+		bec_semnalizare := TRUE;
+		bec_incalzire := FALSE;
+		but_auto := FALSE;
+
+(*OPC button*)
+	(*When this button is pressed the data is taken via an OPC server*)
+	END_IF
+	IF but_u_opc THEN
+				OPC_Mapping();
+				but_auto := FALSE;
+				but_u_inchis:= FALSE;
+				but_cuptor:= FALSE;
+				but_u_deschis:= FALSE;
+
+	END_IF
+
+
+
+
+
+
+
+
+
+
+
+
+
+
